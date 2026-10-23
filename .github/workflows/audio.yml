@@ -1,0 +1,57 @@
+name: Spanische Aufnahmen erzeugen
+
+# Holt die spanische Wortliste aus my-project-26/sprachen und erzeugt für jedes
+# Wort und jeden Beispielsatz eine MP3-Aufnahme (natürliche Stimme) im Ordner es/.
+# Die App lädt sie von https://my-project-26.github.io/audio-sp/es/…
+# Läuft täglich (neue Wörter werden ergänzt) und lässt sich unter „Actions“ von Hand starten.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/audio.yml"]
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: audio
+  cancel-in-progress: false
+
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: my-project-26/sprachen
+          path: .src
+          sparse-checkout: |
+            js
+            tools
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install edge-tts
+      - name: Aufnahmen erzeugen
+        env:
+          AUDIO_DIR: ${{ github.workspace }}
+          AUDIO_MAX_MIN: "300"
+          AUDIO_PARALLEL: "6"
+          AUDIO_PUSH_EVERY_MIN: "8"
+        run: |
+          git config user.name "wortwerk-bot"
+          git config user.email "actions@users.noreply.github.com"
+          echo ".src/" > .git/info/exclude
+          python .src/tools/make-audio.py es
+      - name: Hochladen
+        run: |
+          if [ ! -d es ]; then echo "Noch keine spanische Wortliste – nichts zu tun"; exit 0; fi
+          git add -A es
+          if git diff --cached --quiet; then echo "Nichts Neues"; exit 0; fi
+          git commit -q -m "Aufnahmen aktualisiert"
+          git pull -q --rebase origin main
+          git push -q origin HEAD:main
