@@ -4,22 +4,29 @@ name: Stimme klonen (Spanisch)
 # Vorbild: voices/ref-gemini/<stimme>-es.wav in my-project-26/sprachen).
 # Ergebnis: es-<ordner>/. Startet sich selbst neu, bis alles fertig und geprüft ist.
 on:
+  # alle 2 Stunden: weitermachen, falls noch etwas fehlt (ohne Angaben: Frau 2, alle Niveaus)
+  schedule:
+    - cron: "13 */2 * * *"
   workflow_dispatch:
     inputs:
       voice:
         description: "Stimme: f2, f3, m2 oder m3"
         default: "f2"
+      levels:
+        description: "Niveaus, z. B. A1 oder A1,A2,B1 (leer = alle)"
+        default: ""
 
 permissions:
   contents: write
   actions: write
 
 concurrency:
-  group: clone-${{ inputs.voice }}
+  group: clone-${{ inputs.voice || 'f2' }}
   cancel-in-progress: false
 
 env:
-  V: ${{ inputs.voice }}
+  V: ${{ inputs.voice || 'f2' }}
+  CL_LEVELS: ${{ inputs.levels }}
 
 jobs:
   convert:
@@ -28,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -49,7 +56,7 @@ jobs:
           pip install -q chatterbox-tts resemblyzer
       - name: Sprechen
         env:
-          OV_SHARD: "${{ matrix.shard }}/6"
+          OV_SHARD: "${{ matrix.shard }}/5"
           CL_MAX_MIN: "310"
           CL_PUSH_MIN: "30"
         run: |
@@ -90,7 +97,7 @@ jobs:
           LEFT=$(python3 -c "
           import importlib.util as u, os
           s=u.spec_from_file_location('c','.src/tools/clone.py'); m=u.module_from_spec(s); s.loader.exec_module(m)
-          print(sum(not os.path.exists(os.path.join('$OUT', m.audio_key(t)+'.mp3')) for t in m.texts_for('es')))")
+          print(sum(not os.path.exists(os.path.join('$OUT', m.audio_key(t)+'.mp3')) for t in m.texts_for('es', m.levels())))")
           echo "Es fehlen noch $LEFT Aufnahmen"
           if [ "$LEFT" = "0" ]; then
             pip install -q torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu && pip install -q resemblyzer
@@ -105,6 +112,6 @@ jobs:
           LEFT2=$(python3 -c "
           import importlib.util as u, os
           s=u.spec_from_file_location('c','.src/tools/clone.py'); m=u.module_from_spec(s); s.loader.exec_module(m)
-          print(sum(not os.path.exists(os.path.join('$OUT', m.audio_key(t)+'.mp3')) for t in m.texts_for('es')))")
-          if [ "$LEFT2" != "0" ]; then echo "Noch $LEFT2 offen – nächster Durchgang"; gh workflow run clone.yml -R ${{ github.repository }} -f voice=$V; else echo "Fertig und geprüft"; fi
+          print(sum(not os.path.exists(os.path.join('$OUT', m.audio_key(t)+'.mp3')) for t in m.texts_for('es', m.levels())))")
+          if [ "$LEFT2" != "0" ]; then echo "Noch $LEFT2 offen – nächster Durchgang"; gh workflow run clone.yml -R ${{ github.repository }} -f voice=$V -f levels="$CL_LEVELS"; else echo "Fertig und geprüft"; fi
 
