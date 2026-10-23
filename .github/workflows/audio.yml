@@ -46,7 +46,7 @@ jobs:
           git config user.name "wortwerk-bot"
           git config user.email "actions@users.noreply.github.com"
           echo ".src/" > .git/info/exclude
-          python .src/tools/make-audio.py es es@m es@f2
+          python .src/tools/make-audio.py es es@m
       - name: Hochladen
         run: |
           if [ ! -d es ] && [ ! -d es-m ]; then echo "Noch keine spanische Wortliste – nichts zu tun"; exit 0; fi
