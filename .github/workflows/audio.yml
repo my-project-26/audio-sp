@@ -46,11 +46,11 @@ jobs:
           git config user.name "wortwerk-bot"
           git config user.email "actions@users.noreply.github.com"
           echo ".src/" > .git/info/exclude
-          python .src/tools/make-audio.py es
+          python .src/tools/make-audio.py es es@m es@f2
       - name: Hochladen
         run: |
-          if [ ! -d es ]; then echo "Noch keine spanische Wortliste – nichts zu tun"; exit 0; fi
-          git add -A es
+          if [ ! -d es ] && [ ! -d es-m ]; then echo "Noch keine spanische Wortliste – nichts zu tun"; exit 0; fi
+          git add -A .
           if git diff --cached --quiet; then echo "Nichts Neues"; exit 0; fi
           git commit -q -m "Aufnahmen aktualisiert"
           git pull -q --rebase origin main
