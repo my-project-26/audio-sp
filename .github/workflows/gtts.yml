@@ -7,6 +7,9 @@ on:
       voices:
         description: "Google-Stimmen, z. B. Kore Algenib"
         default: "Kore Algenib"
+      slow:
+        description: "Langsam gesprochene Fassung (Ordner …-slow)"
+        default: "no"
   push:
     branches: [main]
     paths: [".github/workflows/gtts.yml"]
@@ -33,13 +36,14 @@ jobs:
         env:
           GOOGLE_TTS_KEY: ${{ secrets.GOOGLE_TTS_KEY }}
           GTTS_USAGE: gtts-usage.json
-          GTTS_CAP: "600000"
+          GTTS_CAP: "900000"
           GTTS_THREADS: "4"
         run: |
           git config user.name "wortwerk-bot"; git config user.email "actions@users.noreply.github.com"
           echo ".src/" > .git/info/exclude
           for v in ${{ inputs.voices || 'Kore Algenib' }}; do
             D=$(echo $v | tr '[:upper:]' '[:lower:]')
+            if [ "${{ inputs.slow }}" = "yes" ]; then D=$D-slow; export GTTS_RATE=0.72; fi
             for pass in 1 2; do python3 .src/tools/gtts.py run $v es es-$D; done
             python3 .src/tools/write-index.py . es
             git add es-$D es-*/index.json gtts-usage.json
