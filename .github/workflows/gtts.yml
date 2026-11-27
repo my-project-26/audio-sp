@@ -1,0 +1,48 @@
+name: Google-Stimmen aufnehmen (Spanisch)
+# Nimmt alle spanischen Wörter und Beispielsätze mit Google-Stimmen (Chirp 3 HD) auf.
+# Ergebnis: es-<stimme>/ (kore = Frau, algenib = Mann). Werkzeuge aus my-project-26/sprachen.
+on:
+  workflow_dispatch:
+    inputs:
+      voices:
+        description: "Google-Stimmen, z. B. Kore Algenib"
+        default: "Kore Algenib"
+  push:
+    branches: [main]
+    paths: [".github/workflows/gtts.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: gtts
+  cancel-in-progress: false
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: my-project-26/sprachen
+          path: .src
+          sparse-checkout: |
+            js
+            tools
+      - run: sudo apt-get -qq update && sudo apt-get -qq install -y ffmpeg
+      - name: Aufnehmen
+        env:
+          GOOGLE_TTS_KEY: ${{ secrets.GOOGLE_TTS_KEY }}
+          GTTS_USAGE: gtts-usage.json
+          GTTS_CAP: "600000"
+          GTTS_THREADS: "4"
+        run: |
+          git config user.name "wortwerk-bot"; git config user.email "actions@users.noreply.github.com"
+          echo ".src/" > .git/info/exclude
+          for v in ${{ inputs.voices || 'Kore Algenib' }}; do
+            D=$(echo $v | tr '[:upper:]' '[:lower:]')
+            for pass in 1 2; do python3 .src/tools/gtts.py run $v es es-$D; done
+            python3 .src/tools/write-index.py . es
+            git add es-$D es-*/index.json gtts-usage.json
+            git commit -q -m "Google-Stimme $D (es)" || true
+            for i in 1 2 3 4 5 6; do git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && break; sleep 10; done
+          done
